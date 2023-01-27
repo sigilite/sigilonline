@@ -1130,7 +1130,7 @@ document.addEventListener('alpine:init', () => {
 							});
 						},
 						show() {
-							showTutorialStepPointers(['.stone-node--c13']);
+							showTutorialStepPointers(['.stone-node--c13'], { placement: 'right' });
 							setRequiredTutorialActions(['dummy']);
 							let awaitingNode = 'c13';
 
