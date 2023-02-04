@@ -37,6 +37,32 @@ document.addEventListener('alpine:init', () => {
 		validMoves: {},
 		whoseTurn: '',
 		winner: '',
+		fastForwardMode: false,
+		tutorialSections: [{
+			title: 'title10',
+			step: 10
+		}, {
+			title: 'title20',
+			step: 20
+		}, {
+			title: 'title30',
+			step: 30
+		}, {
+			title: 'title40',
+			step: 40
+		}, {
+			title: 'title50',
+			step: 50
+		}, {
+			title: 'title60',
+			step: 60
+		}, {
+			title: 'title70',
+			step: 70
+		}, {
+			title: 'title80',
+			step: 80
+		}],
 
 		get tutorialCanProgress() {
 			return this.awaitingTutorialActions.length === 0;
@@ -123,7 +149,7 @@ document.addEventListener('alpine:init', () => {
 			) {
 				this.activeSpellIsCastable = true;
 
-				if (this.hasTouchScreen) {
+				if (this.hasTouchScreen && !this.fastForwardMode) {
 					this.showSpellTooltip(spell);
 				} else {
 					this.handleRequiredTutorialActions(spellName);
@@ -222,6 +248,15 @@ document.addEventListener('alpine:init', () => {
 				});
 
 				_this.tutorial.on('start', () => {
+					const params = new Proxy(new URLSearchParams(window.location.search), {
+						get: (searchParams, prop) => searchParams.get(prop),
+					});
+					_this.$nextTick(() => {
+						if (params.step > 0) {
+							jumpToTutorialStep(params.step);
+						}
+					});
+
 					document.addEventListener('keydown', (event) => {
 						if (event.code === 'Space' && _this.tutorial.isActive()) {
 							event.preventDefault();
@@ -1728,23 +1763,25 @@ document.addEventListener('alpine:init', () => {
 				const xDiff = xStart - xEnd;
 				const yDiff = yStart - yEnd;
 
-				//tutorial push animation need to wait a tick before moving stone to start node
-				//	otherwise telling the tutorial step pointer to point at the end node can wind up pointing at where
-				//	the end node is when the push animation begins (instead of where it'll be when push animation ends)
-				endNodeElem.style.opacity = 0;
-				setTimeout(() => {
-					endNodeElem.style.opacity = 1;
-
-					//move stone to start node (instant)
-					endNodeElem.style.transition = 'transform 0s';
-					endNodeElem.style.transform = `translate(${xDiff}px, ${yDiff}px)`;
-
+				if (!_this.fastForwardMode) {
+					//tutorial push animation need to wait a tick before moving stone to start node
+					//	otherwise telling the tutorial step pointer to point at the end node can wind up pointing at where
+					//	the end node is when the push animation begins (instead of where it'll be when push animation ends)
+					endNodeElem.style.opacity = 0;
 					setTimeout(() => {
-						//move stone back again (animated)
-						endNodeElem.style.transition = `transform 750ms ease-in-out`;
-						endNodeElem.style.transform = '';
-					}, 50);
-				}, 25);
+						endNodeElem.style.opacity = 1;
+
+						//move stone to start node (instant)
+						endNodeElem.style.transition = 'transform 0s';
+						endNodeElem.style.transform = `translate(${xDiff}px, ${yDiff}px)`;
+
+						setTimeout(() => {
+							//move stone back again (animated)
+							endNodeElem.style.transition = `transform 750ms ease-in-out`;
+							endNodeElem.style.transform = '';
+						}, 50);
+					}, 25);
+				}
 			}
 
 			function handleCrushAnimation(payload) {
@@ -1782,6 +1819,62 @@ document.addEventListener('alpine:init', () => {
 				if (_this.tutorialCanProgress) {
 					resetRequiredTutorialActions();
 					_this.tutorial.next();
+				} else {
+					console.warn('tutorial cannot progress');
+				}
+			}
+
+			function jumpToTutorialStep(targetStepNum) {
+				_this.fastForwardMode = true;
+				resetRequiredTutorialActions();
+				_this.tutorial.show(1, true);
+				for (let i = 1; i <= targetStepNum; i++) {
+					doAwaitedTutorialActions();
+					advanceTour();
+				}
+				_this.fastForwardMode = false;
+
+				function doAwaitedTutorialActions() {
+					const awaitedActions = [..._this.awaitingTutorialActions];
+					for (let awaitedAction of awaitedActions) {
+						switch (awaitedAction) {
+							case 'pass':
+								document.querySelector('.action-button--end-turn').click();
+								break;
+							case 'dash':
+								document.querySelector('.action-button--dash').click();
+								break;
+							case 'Flourish':
+								_this.handleSpellClick('ritual2');
+								break;
+							case 'Carnage':
+								_this.handleSpellClick('ritual3');
+								break;
+							case 'Meteor':
+								_this.handleSpellClick('sorcery3');
+								break;
+							case 'Sprout':
+								_this.handleSpellClick('charm3');
+								break;
+							case 'dummy':
+								const nodeIds = ['c13', 'c7', 'c8', 'c10'];
+								for (let nodeId of nodeIds) {
+									document.querySelector('.stone-node--' + nodeId).click();
+								}
+								break;
+							case 'delay':
+								_this.handleRequiredTutorialActions('delay');
+								break;
+							default:
+								const nodeElem = document.querySelector('.stone-node--' + awaitedAction);
+								if (nodeElem) {
+									nodeElem.click();
+								} else {
+									console.error('Unknown awaitedAction: ' + awaitedAction);
+								}
+								break;
+						}
+					}
 				}
 			}
 
@@ -1886,7 +1979,7 @@ document.addEventListener('alpine:init', () => {
 					}
 				};
 
-				if (delay) {
+				if (!_this.fastForwardMode && delay) {
 					setTimeout(handler, delay);
 				} else {
 					handler();

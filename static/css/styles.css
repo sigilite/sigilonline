@@ -1033,6 +1033,12 @@ html.webp {
 	transition-delay: 1.5s;
 }
 
+.no-spell-delay .charm-spell,
+.no-spell-delay .ritual-spell,
+.no-spell-delay .sorcery-spell {
+	transition-delay: 0s;
+}
+
 @keyframes spell-available-frames {
 	from {
 		box-shadow:

@@ -33,6 +33,48 @@
 	.shepherd-tooltip.collapsed .shepherd-footer button:last-child div {
 		transform: rotate(-90deg);
 	}
+
+	.tutorial-sections {
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
+		padding: 5px 10px;
+		position: fixed;
+		z-index: 1;
+		transition: top ease-out 0.75s;
+		overflow: auto;
+		border-radius: 5px;
+		background: black;
+		color: white;
+		top: 225px;
+		max-height: calc(100vh - 225px - 75px);
+	}
+
+	.tutorial-sections::-webkit-scrollbar-thumb {
+		background: rgb(255 255 255 / 25%);
+		border-radius: 6px;
+	}
+
+	.tutorial-sections::-webkit-scrollbar {
+		background: transparent;
+		width: 6px;
+	}
+
+	.tutorial-sections::-webkit-scrollbar-button {
+		background: transparent;
+		display: block;
+		height: 1px;
+	}
+
+	@media (min-height: 648px) and (min-width: 768px) {
+		.tutorial-sections {
+			margin-left: 15px;
+			right: auto;
+			left: auto;
+			top: 436px;
+			max-height: calc(100vh - 436px - 75px);
+		}
+	}
 </style>
 {% endblock %}
 
@@ -143,7 +185,15 @@
 					</div>
 				</div>
 			</div>
-
+			<template x-if="tutorialSections.length > 0">
+				<ul class="tutorial-sections">
+					<template x-for="tutorialSection in tutorialSections">
+						<li>
+							<a class="link" x-bind:href="'/tutorial?step='+tutorialSection.step" x-text="tutorialSection.title"></a>
+						</li>
+					</template>
+				</ul>
+			</template>
 			<div
 				class="actions"
 				x-bind:class="{ 'actions--visible': showReset || actionList.includes('dash') || actionList.includes('pass')}"
@@ -192,7 +242,7 @@
 						alt=""
 					/>
 				</picture>
-				<div class="spells">
+				<div class="spells no-spell-delay">
 					<template x-for="i in 3">
 						<div>
 							<div
