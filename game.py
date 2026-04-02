@@ -98,6 +98,19 @@ class Board():
 		self.last_play = None
 		self.last_player = None
 
+		self.recorder = None
+
+	def record(self, action_type, **kwargs):
+		if self.recorder is not None:
+			self.recorder.record(action_type, **kwargs)
+
+	def start_turn_recording(self, color, turn_number):
+		if self.recorder is not None:
+			self.recorder.start_turn(color, turn_number)
+
+	def end_game_recording(self):
+		if self.recorder is not None:
+			self.recorder.end_game(self.winner)
 
 	def take_snapshot(self):
 
@@ -421,6 +434,18 @@ class Board():
 
 		return d
 
+	def set_spells_from_names(self, spell_names):
+		"""Rebuild the spell objects from a list of 9 spell name strings."""
+		spells = []
+		for i, name in enumerate(spell_names):
+			pos_idx = i + 1
+			spell_obj = eval("spellfile." + name + "(self, self.positions[" + str(pos_idx) + "], '" + name + "')")
+			spells.append(spell_obj)
+		for charm in spells[6:]:
+			charm.ischarm = True
+		self.spells = spells
+		self.spelldict = self.make_spelldict()
+
 	def addplayers(self, redplayer, blueplayer):
 		### Call this method AFTER building the board and the players.
 		### This is my hack-y way of giving players the board as parameter,
@@ -637,6 +662,7 @@ class Player():
 				return None
 
 		elif action in spelllist:
+			self.board.record('cast', spell=action)
 			self.board.spelldict[action].cast(self)
 			if canspell:
 				self.taketurn(False, candash, False, cansummer)
@@ -763,6 +789,7 @@ class Player():
 			else:
 				if node.stone == None:
 					node.stone = self.color
+					self.board.record('blink', node=node.name)
 
 					egress =  {"type": "new_stone_animation", "color": self.color, "node": node.name}
 
@@ -778,12 +805,14 @@ class Player():
 						self.jmessage("You can only make soft moves under Gravity.")
 						self.move(standardmove=standardmove)
 						return None
+					self.board.record('hard_move', node=node.name, pushed_to='pending')
 					self.pushenemy(node)
 
 
 		elif node.stone == None:
 
 			node.stone = self.color
+			self.board.record('move', node=node.name)
 
 			egress =  {"type": "new_stone_animation", "color": self.color, "node": node.name}
 			self.ws.send(json.dumps(egress))
@@ -799,6 +828,7 @@ class Player():
 				self.jmessage("You can only make soft moves under Gravity.")
 				self.move(standardmove=standardmove)
 				return None
+			self.board.record('hard_move', node=node.name, pushed_to='pending')
 			self.pushenemy(node)
 
 
@@ -820,6 +850,7 @@ class Player():
 
 		if node.stone == None and adjacent:
 			node.stone = self.color
+			self.board.record('move', node=nodename)
 
 			egress =  {"type": "new_stone_animation", "color": self.color, "node": node.name}
 			self.ws.send(json.dumps(egress))
@@ -872,6 +903,7 @@ class Player():
 			return None
 
 		else:
+			self.board.record('hard_move', node=node.name, pushed_to='pending')
 			self.pushenemy(node)
 
 	def dash(self, shimmer=False):
@@ -891,12 +923,14 @@ class Player():
 						if (self.board.last_play == node):
 							self.board.last_play = None
 							self.board.last_player = None
+						self.board.record('dash_lightning', sacrificed=[actualmessage], dest='pending')
 						self.board.update()
 						break
 			self.move()
 			self.board.update()
 
 		else:
+			sacrificed = []
 			while True:
 				self.jmessage("Sacrifice two stones.", "node")
 
@@ -906,6 +940,7 @@ class Player():
 					if (node.stone != self.color):
 						continue
 					else:
+						sacrificed.append(actualmessage)
 						node.stone = None
 						if (self.board.last_play == node):
 							self.board.last_play = None
@@ -922,12 +957,14 @@ class Player():
 					if (node.stone != self.color):
 						continue
 					else:
+						sacrificed.append(actualmessage)
 						node.stone = None
 						if (self.board.last_play == node):
 							self.board.last_play = None
 							self.board.last_player = None
 						self.board.update()
 						break
+			self.board.record('dash', sacrificed=sacrificed, dest='pending')
 			self.move()
 			self.board.update()
 
